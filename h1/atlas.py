@@ -29,7 +29,7 @@ from keras.layers import Embedding
 from keras.layers import Conv1D, GlobalMaxPooling1D
 from keras.datasets import imdb
 from numpy import array
-from tensorflow.keras.optimizers import RMSprop
+from keras.optimizers import RMSprop
 from scipy.sparse import coo_matrix
 from sklearn.utils import shuffle
 from keras.models import Model
@@ -697,8 +697,8 @@ def predict_labels():
 	argmax = None
 
 	if CUSTOM_FIT == 0:
-		prediction = model.predict(x_test) #model.predict(x_test) #
-		prediction_proba = model.predict(x_test)[:, 0]
+		prediction = model.predict_classes(x_test) #model.predict(x_test) #
+		prediction_proba = model.predict_proba(x_test)[:, 0]
 
 		prediction = prediction[:, 0].tolist()
 		prediction_proba = prediction_proba.tolist()
