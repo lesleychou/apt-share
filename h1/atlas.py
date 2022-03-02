@@ -166,7 +166,7 @@ lstm_output_size = 256  # 256 #200 # 64
 EPOCH = 8  # 10 #6
 u_thresh = 80  # 85 #90 #96
 DO_TRAINING = True  # True #
-load_resampling = True  # False #
+load_resampling = False  # False #
 load_nonsampling = False  # True #
 load_undersampling = False
 SHOW_STAT = False  # True # # show graphs after calling fit()
@@ -797,48 +797,60 @@ def generate_malicious_sequences(lines):
             if not tokenized_mal_com_seq in mal_com_seq_list:
                 mal_com_seq_list.append(tokenized_mal_com_seq)
 
+
 def split_training_data(file):
     training_prefix = "seq_graph_training_preprocessed_logs_"
     label_file = open("training_logs/" + file[len(training_prefix):-8] + "/malicious_labels.txt")
     labels = label_file.readlines()
+    labels = [x.strip().lower() for x in labels]
     training_file = open("output/" + file)
     t_lines = training_file.readlines()
     count_malicious = 0
     count_nonattack = 0
     for line in t_lines:
-        if labels in line.split()[0] or line.split()[2]:
+        if line.split()[0] in labels or line.split()[2] in labels:
             count_malicious += 1
         else:
             count_nonattack += 1
-    print("total number of 1 labeled lines in " + file + " is " + count_malicious)
-    print("total number of 0 labeled lines in " + file + " is " + count_nonattack)
+    print(file)
+    print("total number of 1 labeled lines in " + file + " is " + str(count_malicious))
+    print("total number of 0 labeled lines in " + file + " is " + str(count_nonattack))
 
     # We only use half of the labeled date as true label data,
     # and separate true labeled data and pseudo-label data into
     # two files
-    malicious_number_after = count_malicious/2
-    nonattack_number_after = count_nonattack/2
-    if os.path.exists("output/" + file[len(training_prefix):-8] + "/truelabel.txt"):
-        os.remove("output/" + file[len(training_prefix):-8] + "/truelabel.txt")
-    if os.path.exists("output/" + file[len(training_prefix):-8] + "/pseudolabel.txt"):
-        os.remove("output/" + file[len(training_prefix):-8] + "/pseudolabel.txt")
-    true_label_data = open("output/" + file[len(training_prefix):-8] + "/truelabel.txt", "w")
-    pseudo_label_data = open("output/" + file[len(training_prefix):-8] + "/pseudolabel.txt", "w")
+    malicious_number_after = count_malicious / 2
+    nonattack_number_after = count_nonattack / 2
+    location = "output/" + file[len(training_prefix):-8]
+    true_label_path = os.path.join(location, 'truelabel.txt')
+    pseudo_label_path = os.path.join("output/" + file[len(training_prefix):-8], "pseudolabel.txt")
+
+    if os.path.exists(true_label_path):
+        os.remove(true_label_path)
+    else:
+        os.makedirs(true_label_path)
+    if os.path.exists(pseudo_label_path):
+        os.remove(pseudo_label_path)
+    else:
+        os.makedirs(pseudo_label_path)
+    true_label_data = open(true_label_path, "w")
+    pseudo_label_data = open(pseudo_label_path, "w")
     for line in t_lines:
-        if malicious_number_after > 0 and nonattack_number_after > 0:
+        if malicious_number_after > 0 or nonattack_number_after > 0:
+            if malicious_number_after == 0 and (line.split()[0] in labels or line.split()[2] in labels):
+                continue
+            if nonattack_number_after == 0 and (line.split()[0] not in labels and line.split()[2] not in labels):
+                continue
             if labels in line.split()[0] or line.split()[2]:
                 malicious_number_after -= 1
             else:
                 nonattack_number_after -= 1
-            true_label_data = open("output/" + file[len(training_prefix):-8] + "/truelabel.txt","w")
             true_label_data.write(line)
         else:
+            pseudo_label_data.write(line)
 
-
-    print("total number of 1 labeled lines in " + file + " is " + count_malicious)
-    print("total number of 0 labeled lines in " + file + " is " + count_nonattack)
-
-
+    print("total number of 1 labeled lines in " + file + "'s true label data is " + malicious_number_after)
+    print("total number of 0 labeled lines in " + file + "'s true label data is " + nonattack_number_after)
 
 
 if __name__ == '__main__':
@@ -872,6 +884,7 @@ if __name__ == '__main__':
         else:
             # nonsampling start time
             start = time.time()
+
             # gather all malicious sequences
             for file in os.listdir("output"):
                 if file.startswith("seq_graph_training_"):
@@ -879,6 +892,7 @@ if __name__ == '__main__':
 
                     load_malicious_labels(file)
                     malicious_labels_len = len(malicious_labels)
+                    split_training_data(file)
                     input_file_path = "output/" + file
                     input_file = open(input_file_path, "r")
                     lines = input_file.readlines()
