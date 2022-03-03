@@ -797,6 +797,7 @@ def generate_malicious_sequences(lines):
             if not tokenized_mal_com_seq in mal_com_seq_list:
                 mal_com_seq_list.append(tokenized_mal_com_seq)
 
+TRAINING_DATA_PERCENTAGE = 0.5
 
 def split_training_data(file):
     training_prefix = "seq_graph_training_preprocessed_logs_"
@@ -819,38 +820,43 @@ def split_training_data(file):
     # We only use half of the labeled date as true label data,
     # and separate true labeled data and pseudo-label data into
     # two files
-    malicious_number_after = count_malicious / 2
-    nonattack_number_after = count_nonattack / 2
-    location = "output/" + file[len(training_prefix):-8]
-    true_label_path = os.path.join(location, 'truelabel.txt')
-    pseudo_label_path = os.path.join("output/" + file[len(training_prefix):-8], "pseudolabel.txt")
+    malicious_number_after = count_malicious / (1 / TRAINING_DATA_PERCENTAGE)
+    nonattack_number_after = count_nonattack / (1 / TRAINING_DATA_PERCENTAGE)
+    count_malicious_after = 0
+    count_nonattack_after = 0
+    true_label_path = os.path.join('output', file[len(training_prefix):-8])
+    #location = "output/" + file[len(training_prefix):-8]
+    #true_label_path = "output/" + file[len(training_prefix):-8] + "/t"#os.path.join(location, 'truelabel.txt')
+    pseudo_label_path = os.path.join('output', file[len(training_prefix):-8])
 
-    if os.path.exists(true_label_path):
-        os.remove(true_label_path)
-    else:
+    if os.path.exists(true_label_path + '/truelabel.txt'):
+        os.remove(true_label_path + '/truelabel.txt')
+    elif not os.path.exists(true_label_path):
         os.makedirs(true_label_path)
-    if os.path.exists(pseudo_label_path):
-        os.remove(pseudo_label_path)
-    else:
+    if os.path.exists(pseudo_label_path + '/pseudolabel.txt'):
+        os.remove(pseudo_label_path + '/pseudolabel.txt')
+    elif not os.path.exists(pseudo_label_path):
         os.makedirs(pseudo_label_path)
-    true_label_data = open(true_label_path, "w")
-    pseudo_label_data = open(pseudo_label_path, "w")
+    true_label_data = open(true_label_path + '/truelabel.txt', "w+")
+    pseudo_label_data = open(pseudo_label_path + '/pseudolabel.txt', "w+")
     for line in t_lines:
         if malicious_number_after > 0 or nonattack_number_after > 0:
-            if malicious_number_after == 0 and (line.split()[0] in labels or line.split()[2] in labels):
+            if malicious_number_after <= 0 and (line.split()[0] in labels or line.split()[2] in labels):
                 continue
-            if nonattack_number_after == 0 and (line.split()[0] not in labels and line.split()[2] not in labels):
+            if nonattack_number_after <= 0 and (line.split()[0] not in labels and line.split()[2] not in labels):
                 continue
-            if labels in line.split()[0] or line.split()[2]:
+            if line.split()[0] in labels or line.split()[2] in labels:
                 malicious_number_after -= 1
+                count_malicious_after += 1
             else:
                 nonattack_number_after -= 1
+                count_nonattack_after += 1
             true_label_data.write(line)
         else:
             pseudo_label_data.write(line)
 
-    print("total number of 1 labeled lines in " + file + "'s true label data is " + malicious_number_after)
-    print("total number of 0 labeled lines in " + file + "'s true label data is " + nonattack_number_after)
+    print("total number of 1 labeled lines in " + file + "'s true label data is " + str(count_malicious_after))
+    print("total number of 0 labeled lines in " + file + "'s true label data is " + str(count_nonattack_after))
 
 
 if __name__ == '__main__':
