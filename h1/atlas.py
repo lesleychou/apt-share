@@ -1098,7 +1098,7 @@ if __name__ == '__main__':
     SELF_TRAINING_EPOCH = 5
 
     while SELF_TRAINING_EPOCH > 0:
-        print("\nself training epoch" + str(abs(SELF_TRAINING_EPOCH-6)))
+        print("\nself training epoch " + str(abs(SELF_TRAINING_EPOCH-SELF_TRAINING_EPOCH-1)))
         for file in os.listdir('output'):
             SELF_TRAINING_EPOCH -= 1
             if file.startswith('seq_graph_training'):
@@ -1125,7 +1125,6 @@ if __name__ == '__main__':
             input_file_path = "output/" + file
             input_file = open(input_file_path, "r")
             lines = input_file.readlines()
-            # print(lines)
             x_test, y_test, z_test, subjects_statements = prepare_dataset(lines, file)
     # IGNORE: This is only good when filtering out the predicted labels noise
     # base_labels = recover_deterministic_labels(predicted_labels, subjects_statements)
