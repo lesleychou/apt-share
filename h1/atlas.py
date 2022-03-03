@@ -817,7 +817,7 @@ def split_training_data(file):
     print("total number of 1 labeled lines in " + file + " is " + str(count_malicious))
     print("total number of 0 labeled lines in " + file + " is " + str(count_nonattack))
 
-    # We only use half of the labeled date as true label data,
+    # We only use certain percentage of the labeled date as true label data,
     # and separate true labeled data and pseudo-label data into
     # two files
     malicious_number_after = count_malicious / (1 / TRAINING_DATA_PERCENTAGE)
@@ -825,8 +825,6 @@ def split_training_data(file):
     count_malicious_after = 0
     count_nonattack_after = 0
     true_label_path = os.path.join('output', file[len(training_prefix):-8])
-    #location = "output/" + file[len(training_prefix):-8]
-    #true_label_path = "output/" + file[len(training_prefix):-8] + "/t"#os.path.join(location, 'truelabel.txt')
     pseudo_label_path = os.path.join('output', file[len(training_prefix):-8])
 
     if os.path.exists(true_label_path + '/truelabel.txt'):
@@ -890,6 +888,7 @@ if __name__ == '__main__':
         else:
             # nonsampling start time
             start = time.time()
+            training_prefix = "seq_graph_training_preprocessed_logs_"
 
             # gather all malicious sequences
             for file in os.listdir("output"):
@@ -899,7 +898,7 @@ if __name__ == '__main__':
                     load_malicious_labels(file)
                     malicious_labels_len = len(malicious_labels)
                     split_training_data(file)
-                    input_file_path = "output/" + file
+                    input_file_path = "output/" + file[len(training_prefix):-8] + '/truelabel.txt'
                     input_file = open(input_file_path, "r")
                     lines = input_file.readlines()
 
@@ -920,7 +919,7 @@ if __name__ == '__main__':
 
                     load_malicious_labels(file)
                     malicious_labels_len = len(malicious_labels)
-                    input_file_path = "output/" + file
+                    input_file_path = "output/" + file[len(training_prefix):-8] + '/truelabel.txt'
                     input_file = open(input_file_path, "r")
                     lines = input_file.readlines()
 
@@ -928,7 +927,8 @@ if __name__ == '__main__':
                         load_malicious_labels(file)
                         user_artifact = malicious_labels[i]
                         malicious_labels.remove(user_artifact)
-                        x_train, y_train, z_train, subjects_statements = prepare_dataset(lines, file)
+                        train_file = file[len(training_prefix):-8] + '/truelabel.txt'
+                        x_train, y_train, z_train, subjects_statements = prepare_dataset(lines, train_file)
                         print("user_artifact: " + user_artifact)
                         print("Total learning samples: " + str(len(x_train)))
                 # break
@@ -1093,6 +1093,24 @@ if __name__ == '__main__':
         print('Save the model...')
         model.save('output/model.h5')
         exit()
+
+    #self training
+    SELF_TRAINING_EPOCH = 5
+
+    while SELF_TRAINING_EPOCH > 0:
+        print("\nself training epoch" + str(abs(SELF_TRAINING_EPOCH-6)))
+        for file in os.listdir('output'):
+            SELF_TRAINING_EPOCH -= 1
+            if file.startswith('seq_graph_training'):
+                load_malicious_labels(file)
+                user_artifact = malicious_labels[0]
+                print("\nLoading the malicious labels:")
+                print(str(malicious_labels) + "\n")
+                input_file_path = 'output/' + file[len(training_prefix):-8] + '/pseudolabel.txt'
+                input_file = open(input_file_path, "r")
+                lines = input_file.readlines()
+                train_file = file[len(training_prefix):-8] + '/pseudolabel.txt'
+                x_test, y_test, z_test, subjects_statements = prepare_dataset(lines, train_file)
 
     TESTING_STARTED = True
 
