@@ -161,8 +161,8 @@ embedding_size = 128 # 128 dimensions that the model learns for each word=featur
 lstm_output_size = 256 
 EPOCH = 8 
 u_thresh = 80 
-DO_TRAINING =  True # True #
-load_resampling = False # False #
+DO_TRAINING =  False # True #
+load_resampling = True # False #
 load_nonsampling = False # True # 
 load_undersampling = False
 SHOW_STAT = False # True # # show graphs after calling fit()
@@ -455,6 +455,8 @@ def testing_suggest_ground_truth(lines, possible_labels):
 		# exit()
 		if prediction_counter >= maximum_number_of_test_iterations: # 1
 			file_name = current_file[len("seq_graph_"):-8]
+			print(x_test.size)
+			print(x_test[:,1].size)
 			file_path = "output/" + file_name
 			ofile = open(file_path, "r")
 			ofile_lines = ofile.readlines()
@@ -685,6 +687,8 @@ def predict_labels():
 
 	if CUSTOM_FIT == 0:
 		prediction = model.predict_classes(x_test)
+		print("x size:" + str(x_test.size))
+		print("y size:" + str(prediction.size))
 		prediction_proba = model.predict_proba(x_test)[:, 0]
 
 		prediction = prediction[:, 0].tolist()
@@ -847,6 +851,7 @@ if __name__ == '__main__':
 						print("user_artifact: " + user_artifact)
 						print("Total learning samples: " + str(len(x_train)))
 			
+
 			combined = list(zip(x_train, y_train))
 			combined = sorted(combined, key = lambda x: x[1], reverse=True)
 	
@@ -990,8 +995,11 @@ if __name__ == '__main__':
 		random.shuffle(combined)
 		x_train[:], y_train[:] = zip(*combined)
 
+
 		x_train = sequence.pad_sequences(x_train, maxlen=maxlen, padding="post")
 		y_train = np.array(y_train)
+		print("size:" + str(y_train.size))
+		print("front 30:" + str(y_train[:30]))
 
 		start = time.time()
 		train()
@@ -1016,3 +1024,4 @@ if __name__ == '__main__':
 			input_file = open(input_file_path, "r")
 			lines = input_file.readlines()
 			x_test, y_test, z_test, subjects_statements = prepare_dataset(lines, file)
+			print(x_test.size)

@@ -751,7 +751,7 @@ def prepare_dataset(lines, preprocessed_logs_file):
     current_file = preprocessed_logs_file
     result_list = []
 
-    print(preprocessed_logs_file + " processing...")
+    print(str(preprocessed_logs_file) + " processing...")
 
     result_list, subjects_statements = abstract_to_logs_sequences(lines)
 
@@ -886,6 +886,7 @@ if __name__ == '__main__':
             y_train = x_y_z_list[1]
             z_train = x_y_z_list[2]
         else:
+
             # nonsampling start time
             start = time.time()
             training_prefix = "seq_graph_training_preprocessed_logs_"
@@ -898,7 +899,7 @@ if __name__ == '__main__':
                     load_malicious_labels(file)
                     malicious_labels_len = len(malicious_labels)
                     split_training_data(file)
-                    input_file_path = "output/" + file[len(training_prefix):-8] + '/truelabel.txt'
+                    input_file_path = "output/" + file
                     input_file = open(input_file_path, "r")
                     lines = input_file.readlines()
 
@@ -919,92 +920,53 @@ if __name__ == '__main__':
 
                     load_malicious_labels(file)
                     malicious_labels_len = len(malicious_labels)
-                    input_file_path = "output/" + file[len(training_prefix):-8] + '/truelabel.txt'
-                    input_file = open(input_file_path, "r")
-                    lines = input_file.readlines()
+                    input_true_file_path = "output/" + file[len(training_prefix):-8] + '/truelabel.txt'
+                    true_input_file = open(input_true_file_path, "r")
+                    true_lines = true_input_file.readlines()
+                    input_pseudo_file_path = "output/" + file[len(training_prefix):-8] + '/pseudolabel.txt'
+                    pseudo_input_file = open(input_pseudo_file_path, "r")
+                    pseudo_lines = pseudo_input_file.readlines()
 
                     for i in range(0, malicious_labels_len):
                         load_malicious_labels(file)
                         user_artifact = malicious_labels[i]
                         malicious_labels.remove(user_artifact)
-                        train_file = file[len(training_prefix):-8] + '/truelabel.txt'
-                        x_train, y_train, z_train, subjects_statements = prepare_dataset(lines, train_file)
+                        #true_train_file = file[len(training_prefix):-8] + '/truelabel.txt'
+                        x_train, y_train, z_train, subjects_statements = prepare_dataset(true_lines, true_input_file)
+                        #pseudo_train_file = file[len(training_prefix):-8] + '/pseudolabel.txt'
+                        pseudo_x_train, y_trash_set, z_trash_set, trash_subjects_statements = prepare_dataset(pseudo_lines, pseudo_input_file)
+                        z_train.extend(z_trash_set)
                         print("user_artifact: " + user_artifact)
                         print("Total learning samples: " + str(len(x_train)))
                 # break
             # break
 
-            combined = list(zip(x_train, y_train))
-            combined = sorted(combined, key=lambda x: x[1], reverse=True)
+            SELF_TRAINING_EPOCH = 5
+            SELF_TRAINING_Threshold = 0.5
+            pseudo_y_train = []
 
-            x_train[:], y_train[:] = zip(*combined)
+            # original copy of x_train, y_train and z_train, only contains true label.
+            origin_x_train = x_train
+            origin_y_train = y_train
+            origin_z_train = z_train
 
-            tokenized_x_train = []
+            while SELF_TRAINING_EPOCH > 0:
+                print("\nself training epoch " + str(abs(SELF_TRAINING_EPOCH - SELF_TRAINING_EPOCH - 1)))
+                combined = list(zip(x_train, y_train))
+                combined = sorted(combined, key=lambda x: x[1], reverse=True)
 
-            for x in x_train:
-                temp_x = ""
-                for xx in x:
-                    temp_x += tokenized_x_train_elements[xx] + " "
-                temp_x = "".join(temp_x.split(" "))
-                tokenized_x_train.append(temp_x.rstrip())
+                x_train[:], y_train[:] = zip(*combined)
 
-            print("y_train[:30]: " + str(list(y_train)[:30]))
+                tokenized_x_train = []
 
-            count_y_0 = 0
-            count_y_1 = 0
+                for x in x_train:
+                    temp_x = ""
+                    for xx in x:
+                        temp_x += tokenized_x_train_elements[xx] + " "
+                    temp_x = "".join(temp_x.split(" "))
+                    tokenized_x_train.append(temp_x.rstrip())
 
-            for yval in list(y_train):
-                # print yval
-                if yval == 1:
-                    count_y_1 += 1
-                if yval == 0:
-                    count_y_0 += 1
-
-            print("zeros: " + str(count_y_0))
-            print("ones: " + str(count_y_1))
-
-            if not load_nonsampling:
-                done = time.time()
-                elapsed = done - start
-                print("Nonsampling time: " + str(elapsed))
-
-                x_y_z_list = [x_train, y_train, z_train]
-
-                if os.path.exists("resampling/nonsampling.json"):
-                    os.remove("resampling/nonsampling.json")
-
-                nonsampling_out = open("resampling/nonsampling.json", 'w')
-                json.dump(x_y_z_list, nonsampling_out)
-                nonsampling_out.close()
-                print("Saved nonsampling.json file ...")
-
-                # reset for undersampling time
-                start = time.time()
-
-            print("Generating undersampled datasets ...")
-            if count_y_1 < count_y_0:
-                j_to_be_del = []
-
-                for x_t_i in range(count_y_1, len(y_train)):
-                    if x_t_i in j_to_be_del:
-                        continue
-
-                    for x_t_j in range(x_t_i + 1, len(y_train)):
-                        if x_t_j in j_to_be_del:
-                            continue
-                        # pr = fuzz.partial_ratio(tokenized_x_train[x_t_i], tokenized_x_train[x_t_j])
-                        pr = fuzz.ratio(tokenized_x_train[x_t_i], tokenized_x_train[x_t_j])
-                        if pr >= u_thresh:
-                            # print(str(x_t_j) + " = " + tokenized_x_train[x_t_j])
-                            j_to_be_del.append(x_t_j)  # x_t_i
-                    # break
-
-                j_to_be_del.sort(reverse=True)
-                for j_del in j_to_be_del:
-                    del x_train[j_del]
-                    del y_train[j_del]
-                    del z_train[j_del]
-                    del tokenized_x_train[j_del]
+                print("y_train[:30]: " + str(list(y_train)[:30]))
 
                 count_y_0 = 0
                 count_y_1 = 0
@@ -1016,36 +978,51 @@ if __name__ == '__main__':
                     if yval == 0:
                         count_y_0 += 1
 
-                print("after undersampling the dataset: ")
                 print("zeros: " + str(count_y_0))
                 print("ones: " + str(count_y_1))
 
-                if not load_undersampling:
+                if not load_nonsampling:
                     done = time.time()
                     elapsed = done - start
-                    print("Undersampling time: " + str(elapsed))
+                    print("Nonsampling time: " + str(elapsed))
+
                     x_y_z_list = [x_train, y_train, z_train]
 
-                    if os.path.exists("resampling/undersampling.json"):
-                        os.remove("resampling/undersampling.json")
+                    if os.path.exists("resampling/nonsampling.json"):
+                        os.remove("resampling/nonsampling.json")
 
-                    undersampling_out = open("resampling/undersampling.json", 'w')
-                    json.dump(x_y_z_list, undersampling_out)
-                    undersampling_out.close()
-                    print("Saved undersampling.json file ...")
+                    nonsampling_out = open("resampling/nonsampling.json", 'w')
+                    json.dump(x_y_z_list, nonsampling_out)
+                    nonsampling_out.close()
+                    print("Saved nonsampling.json file ...")
 
-                    # reset for oversampling time
+                    # reset for undersampling time
                     start = time.time()
 
-                # over-sampling
+                print("Generating undersampled datasets ...")
                 if count_y_1 < count_y_0:
-                    number_of_iterations = count_y_0 - count_y_1
-                    x_train_t, y_train_t, z_train_t = x_train[:count_y_1], y_train[:count_y_1], z_train[:count_y_1]
-                    for i_n in range(0, number_of_iterations):
-                        i_n_mod = i_n % count_y_1
-                        x_train = [x_train_t[i_n_mod]] + x_train
-                        y_train = [y_train_t[i_n_mod]] + y_train
-                        z_train = [z_train_t[i_n_mod]] + z_train
+                    j_to_be_del = []
+
+                    for x_t_i in range(count_y_1, len(y_train)):
+                        if x_t_i in j_to_be_del:
+                            continue
+
+                        for x_t_j in range(x_t_i + 1, len(y_train)):
+                            if x_t_j in j_to_be_del:
+                                continue
+                            # pr = fuzz.partial_ratio(tokenized_x_train[x_t_i], tokenized_x_train[x_t_j])
+                            pr = fuzz.ratio(tokenized_x_train[x_t_i], tokenized_x_train[x_t_j])
+                            if pr >= u_thresh:
+                                # print(str(x_t_j) + " = " + tokenized_x_train[x_t_j])
+                                j_to_be_del.append(x_t_j)  # x_t_i
+                        # break
+
+                    j_to_be_del.sort(reverse=True)
+                    for j_del in j_to_be_del:
+                        del x_train[j_del]
+                        del y_train[j_del]
+                        del z_train[j_del]
+                        del tokenized_x_train[j_del]
 
                     count_y_0 = 0
                     count_y_1 = 0
@@ -1057,60 +1034,99 @@ if __name__ == '__main__':
                         if yval == 0:
                             count_y_0 += 1
 
-                    print("after oversampling the dataset: ")
+                    print("after undersampling the dataset: ")
                     print("zeros: " + str(count_y_0))
                     print("ones: " + str(count_y_1))
 
-                    done = time.time()
-                    elapsed = done - start
-                    print("Overampling time: " + str(elapsed))
-                    x_y_z_list = [x_train, y_train, z_train]
+                    if not load_undersampling:
+                        done = time.time()
+                        elapsed = done - start
+                        print("Undersampling time: " + str(elapsed))
+                        x_y_z_list = [x_train, y_train, z_train]
 
-                    if os.path.exists("resampling/resampling.json"):
-                        os.remove("resampling/resampling.json")
+                        if os.path.exists("resampling/undersampling.json"):
+                            os.remove("resampling/undersampling.json")
 
-                    resampling_out = open("resampling/resampling.json", 'w')
-                    json.dump(x_y_z_list, resampling_out)
-                    resampling_out.close()
-                    print("Saved resampling.json file ...")
+                        undersampling_out = open("resampling/undersampling.json", 'w')
+                        json.dump(x_y_z_list, undersampling_out)
+                        undersampling_out.close()
+                        print("Saved undersampling.json file ...")
 
-                    exit()
+                        # reset for oversampling time
+                        start = time.time()
 
-        combined = list(zip(x_train, y_train))
-        random.Random(seed).shuffle(combined)
-        random.shuffle(combined)
-        x_train[:], y_train[:] = zip(*combined)
+                    # over-sampling
+                    if count_y_1 < count_y_0:
+                        number_of_iterations = count_y_0 - count_y_1
+                        x_train_t, y_train_t, z_train_t = x_train[:count_y_1], y_train[:count_y_1], z_train[:count_y_1]
+                        for i_n in range(0, number_of_iterations):
+                            i_n_mod = i_n % count_y_1
+                            x_train = [x_train_t[i_n_mod]] + x_train
+                            y_train = [y_train_t[i_n_mod]] + y_train
+                            z_train = [z_train_t[i_n_mod]] + z_train
 
-        x_train = sequence.pad_sequences(x_train, maxlen=maxlen, padding="post")
-        y_train = np.array(y_train)
+                        count_y_0 = 0
+                        count_y_1 = 0
 
-        start = time.time()
-        train()
-        done = time.time()
-        elapsed = done - start
-        print("Training time: " + str(elapsed))
-        # save model and weights
-        print('Save the model...')
-        model.save('output/model.h5')
-        exit()
+                        for yval in list(y_train):
+                            # print yval
+                            if yval == 1:
+                                count_y_1 += 1
+                            if yval == 0:
+                                count_y_0 += 1
 
-    #self training
-    SELF_TRAINING_EPOCH = 5
+                        print("after oversampling the dataset: ")
+                        print("zeros: " + str(count_y_0))
+                        print("ones: " + str(count_y_1))
 
-    while SELF_TRAINING_EPOCH > 0:
-        print("\nself training epoch " + str(abs(SELF_TRAINING_EPOCH-SELF_TRAINING_EPOCH-1)))
-        for file in os.listdir('output'):
-            SELF_TRAINING_EPOCH -= 1
-            if file.startswith('seq_graph_training'):
-                load_malicious_labels(file)
-                user_artifact = malicious_labels[0]
-                print("\nLoading the malicious labels:")
-                print(str(malicious_labels) + "\n")
-                input_file_path = 'output/' + file[len(training_prefix):-8] + '/pseudolabel.txt'
-                input_file = open(input_file_path, "r")
-                lines = input_file.readlines()
-                train_file = file[len(training_prefix):-8] + '/pseudolabel.txt'
-                x_test, y_test, z_test, subjects_statements = prepare_dataset(lines, train_file)
+                        done = time.time()
+                        elapsed = done - start
+                        print("Overampling time: " + str(elapsed))
+                        x_y_z_list = [x_train, y_train, z_train]
+
+                        if os.path.exists("resampling/resampling.json"):
+                            os.remove("resampling/resampling.json")
+
+                        resampling_out = open("resampling/resampling.json", 'w')
+                        json.dump(x_y_z_list, resampling_out)
+                        resampling_out.close()
+                        print("Saved resampling.json file ...")
+
+                        #exit()
+
+                combined = list(zip(x_train, y_train))
+                random.Random(seed).shuffle(combined)
+                random.shuffle(combined)
+                x_train[:], y_train[:] = zip(*combined)
+
+                x_train = sequence.pad_sequences(x_train, maxlen=maxlen, padding="post")
+                y_train = np.array(y_train)
+
+                start = time.time()
+                train()
+                done = time.time()
+                elapsed = done - start
+                print("Training time: " + str(elapsed))
+                    # save model and weights
+                print('Save the model...')
+                model.save('output/model.h5')
+
+                # self training
+                pseudo_y_train = np.zeros(pseudo_x_train[:, 0].size)
+                prediction_y_label_proba = model.predict_proba(pseudo_x_train)[:, 0]
+                prediction_y_label_proba = prediction_y_label_proba.tolist()
+                p_index = [idx for idx, val in enumerate(prediction_y_label_proba) if val > SELF_TRAINING_Threshold]
+
+                pseudo_y_train[p_index] = 1
+                x_train = origin_x_train
+                x_train.extend(pseudo_x_train)
+                y_train = origin_y_train
+                y_train.extend(pseudo_y_train)
+
+            exit()
+
+
+
 
     TESTING_STARTED = True
 
