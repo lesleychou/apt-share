@@ -797,7 +797,9 @@ def generate_malicious_sequences(lines):
             if not tokenized_mal_com_seq in mal_com_seq_list:
                 mal_com_seq_list.append(tokenized_mal_com_seq)
 
+
 TRAINING_DATA_PERCENTAGE = 0.5
+
 
 def split_training_data(file):
     training_prefix = "seq_graph_training_preprocessed_logs_"
@@ -857,6 +859,37 @@ def split_training_data(file):
     print("total number of 0 labeled lines in " + file + "'s true label data is " + str(count_nonattack_after))
 
 
+def split_training_data_from_dataset(x_train, y_train, z_train):
+    train_size = len(y_train)
+    true_x_train = []
+    true_y_train = []
+    mod_z_train = []
+    pseudo_x_train = []
+    pseudo_y_train = []
+    x_train = np.array(x_train)
+    y_train = np.array(y_train)
+    z_train = np.array(z_train)
+
+
+    positive_index = [idx for idx, val in enumerate(y_train) if val == 1]
+    negative_index = [idx for idx, val in enumerate(y_train) if val == 0]
+    xp=list(x_train[positive_index[0:int(len(positive_index) * TRAINING_DATA_PERCENTAGE)]])
+    xn=list(x_train[negative_index[0:int(len(negative_index) * TRAINING_DATA_PERCENTAGE)]])
+    true_x_train.extend(list(x_train[positive_index[0:int(len(positive_index) * TRAINING_DATA_PERCENTAGE)]]))
+    true_x_train.extend(list(x_train[negative_index[0:int(len(negative_index) * TRAINING_DATA_PERCENTAGE)]]))
+    true_y_train.extend(list(y_train[positive_index[0:int(len(positive_index) * TRAINING_DATA_PERCENTAGE)]]))
+    true_y_train.extend(list(y_train[negative_index[0:int(len(negative_index) * TRAINING_DATA_PERCENTAGE)]]))
+    mod_z_train.extend(list(z_train[positive_index[0:int(len(positive_index) * TRAINING_DATA_PERCENTAGE)]]))
+    mod_z_train.extend(list(z_train[negative_index[0:int(len(negative_index) * TRAINING_DATA_PERCENTAGE)]]))
+
+    pseudo_x_train.extend(list(x_train[positive_index[int(len(positive_index) * TRAINING_DATA_PERCENTAGE):]]))
+    pseudo_x_train.extend(list(x_train[negative_index[int(len(negative_index) * TRAINING_DATA_PERCENTAGE):]]))
+    mod_z_train.extend(list(z_train[positive_index[int(len(positive_index) * TRAINING_DATA_PERCENTAGE):]]))
+    mod_z_train.extend(list(z_train[negative_index[int(len(negative_index) * TRAINING_DATA_PERCENTAGE):]]))
+
+    return true_x_train, true_y_train, pseudo_x_train, mod_z_train
+
+
 if __name__ == '__main__':
 
     lines = []
@@ -891,14 +924,54 @@ if __name__ == '__main__':
             start = time.time()
             training_prefix = "seq_graph_training_preprocessed_logs_"
 
-            # gather all malicious sequences
+            # # gather all malicious sequences
+            # for file in os.listdir("output"):
+            #     if file.startswith("seq_graph_training_"):
+            #         print("1- file: " + file)
+            #
+            #         load_malicious_labels(file)
+            #         malicious_labels_len = len(malicious_labels)
+            #         split_training_data(file)
+            #         input_file_path = "output/" + file
+            #         input_file = open(input_file_path, "r")
+            #         lines = input_file.readlines()
+            #
+            #         for i in range(0, malicious_labels_len):
+            #             load_malicious_labels(file)
+            #             user_artifact = malicious_labels[i]
+            #             malicious_labels.remove(user_artifact)
+            #             subjects_statements, subjects = get_active_actions_statements(lines)
+            #             generate_malicious_sequences(subjects_statements)
+            #             print("user_artifact: " + user_artifact)
+            #     # break
+            # # break
+            #
+            # print("##########################################")
+            # # generate true label datasets
+            # for file in os.listdir("output"):
+            #     if file.startswith("seq_graph_training_"):
+            #         print("2- file: " + file)
+            #
+            #         load_malicious_labels(file)
+            #         malicious_labels_len = len(malicious_labels)
+            #         input_true_file_path = "output/" + file[len(training_prefix):-8] + '/truelabel.txt'
+            #         true_input_file = open(input_true_file_path, "r")
+            #         true_lines = true_input_file.readlines()
+            #
+            #         for i in range(0, malicious_labels_len):
+            #             load_malicious_labels(file)
+            #             user_artifact = malicious_labels[i]
+            #             malicious_labels.remove(user_artifact)
+            #             x_train, y_train, z_train, subjects_statements = prepare_dataset(true_lines, true_input_file)
+            #             print("user_artifact: " + user_artifact)
+            #             print("Total learning samples: " + str(len(x_train)))
+            #     # break
             for file in os.listdir("output"):
                 if file.startswith("seq_graph_training_"):
                     print("1- file: " + file)
 
                     load_malicious_labels(file)
                     malicious_labels_len = len(malicious_labels)
-                    split_training_data(file)
                     input_file_path = "output/" + file
                     input_file = open(input_file_path, "r")
                     lines = input_file.readlines()
@@ -910,8 +983,6 @@ if __name__ == '__main__':
                         subjects_statements, subjects = get_active_actions_statements(lines)
                         generate_malicious_sequences(subjects_statements)
                         print("user_artifact: " + user_artifact)
-                # break
-            # break
 
             print("##########################################")
             for file in os.listdir("output"):
@@ -920,38 +991,55 @@ if __name__ == '__main__':
 
                     load_malicious_labels(file)
                     malicious_labels_len = len(malicious_labels)
-                    input_true_file_path = "output/" + file[len(training_prefix):-8] + '/truelabel.txt'
-                    true_input_file = open(input_true_file_path, "r")
-                    true_lines = true_input_file.readlines()
-                    input_pseudo_file_path = "output/" + file[len(training_prefix):-8] + '/pseudolabel.txt'
-                    pseudo_input_file = open(input_pseudo_file_path, "r")
-                    pseudo_lines = pseudo_input_file.readlines()
+                    input_file_path = "output/" + file
+                    input_file = open(input_file_path, "r")
+                    lines = input_file.readlines()
 
                     for i in range(0, malicious_labels_len):
                         load_malicious_labels(file)
                         user_artifact = malicious_labels[i]
                         malicious_labels.remove(user_artifact)
-                        #true_train_file = file[len(training_prefix):-8] + '/truelabel.txt'
-                        x_train, y_train, z_train, subjects_statements = prepare_dataset(true_lines, true_input_file)
-                        #pseudo_train_file = file[len(training_prefix):-8] + '/pseudolabel.txt'
-                        pseudo_x_train, y_trash_set, z_trash_set, trash_subjects_statements = prepare_dataset(pseudo_lines, pseudo_input_file)
-                        z_train.extend(z_trash_set)
+                        x_train, y_train, z_train, subjects_statements = prepare_dataset(lines, file)
                         print("user_artifact: " + user_artifact)
                         print("Total learning samples: " + str(len(x_train)))
-                # break
-            # break
+
+            # original copy of x_train, y_train and z_train, only contains true label.
+            x_train, y_train, pseudo_x_train, z_train = split_training_data_from_dataset(x_train, y_train, z_train)
+            origin_x_train = x_train
+            origin_y_train = y_train
+            origin_z_train = z_train
+
+            x_dataset = []
+            y_dataset = []
+            z_dataset = []
+
+            # generate pseudo label datasets
+            # for file in os.listdir("output"):
+            #    if file.startswith("seq_graph_training_"):
+            #        print("2- file: " + file)
+            #
+            #        load_malicious_labels(file)
+            #        malicious_labels_len = len(malicious_labels)
+            #        input_pseudo_file_path = "output/" + file[len(training_prefix):-8] + '/pseudolabel.txt'
+            #        pseudo_input_file = open(input_pseudo_file_path, "r")
+            #        pseudo_lines = pseudo_input_file.readlines()
+            #
+            #        for i in range(0, malicious_labels_len):
+            #            load_malicious_labels(file)
+            #            user_artifact = malicious_labels[i]
+            #            malicious_labels.remove(user_artifact)
+            #            pseudo_x_train, y_trash_set, z_trash_set, trash_subjects_statements = prepare_dataset(
+            #                pseudo_lines, pseudo_input_file)
+            #            print("user_artifact: " + user_artifact)
+            #            print("Total learning samples: " + str(len(x_train)))
 
             SELF_TRAINING_EPOCH = 5
             SELF_TRAINING_Threshold = 0.5
             pseudo_y_train = []
 
-            # original copy of x_train, y_train and z_train, only contains true label.
-            origin_x_train = x_train
-            origin_y_train = y_train
-            origin_z_train = z_train
-
             while SELF_TRAINING_EPOCH > 0:
                 print("\nself training epoch " + str(abs(SELF_TRAINING_EPOCH - SELF_TRAINING_EPOCH - 1)))
+
                 combined = list(zip(x_train, y_train))
                 combined = sorted(combined, key=lambda x: x[1], reverse=True)
 
@@ -1092,7 +1180,13 @@ if __name__ == '__main__':
                         resampling_out.close()
                         print("Saved resampling.json file ...")
 
-                        #exit()
+                        # exit()
+                print("Loading resampled datasets ...")
+                resampling_in = open("resampling/resampling.json")
+                x_y_z_list = json.load(resampling_in)
+                x_train = x_y_z_list[0]
+                y_train = x_y_z_list[1]
+                z_train = x_y_z_list[2]
 
                 combined = list(zip(x_train, y_train))
                 random.Random(seed).shuffle(combined)
@@ -1107,7 +1201,7 @@ if __name__ == '__main__':
                 done = time.time()
                 elapsed = done - start
                 print("Training time: " + str(elapsed))
-                    # save model and weights
+                # save model and weights
                 print('Save the model...')
                 model.save('output/model.h5')
 
@@ -1122,11 +1216,9 @@ if __name__ == '__main__':
                 x_train.extend(pseudo_x_train)
                 y_train = origin_y_train
                 y_train.extend(pseudo_y_train)
+                z_train = origin_z_train
 
             exit()
-
-
-
 
     TESTING_STARTED = True
 
