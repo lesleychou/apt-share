@@ -165,7 +165,7 @@ embedding_size = 128  # 128 dimensions that the model learns for each word=featu
 lstm_output_size = 256  # 256 #200 # 64
 EPOCH = 8  # 10 #6
 u_thresh = 80  # 85 #90 #96
-DO_TRAINING = True  # True #
+DO_TRAINING = False  # True #
 load_resampling = False  # False #
 load_nonsampling = False  # True #
 load_undersampling = False
@@ -865,7 +865,6 @@ def split_training_data_from_dataset(x_train, y_train, z_train):
     true_y_train = []
     mod_z_train = []
     pseudo_x_train = []
-    pseudo_y_train = []
     x_train = np.array(x_train)
     y_train = np.array(y_train)
     z_train = np.array(z_train)
@@ -873,19 +872,37 @@ def split_training_data_from_dataset(x_train, y_train, z_train):
 
     positive_index = [idx for idx, val in enumerate(y_train) if val == 1]
     negative_index = [idx for idx, val in enumerate(y_train) if val == 0]
-    xp=list(x_train[positive_index[0:int(len(positive_index) * TRAINING_DATA_PERCENTAGE)]])
-    xn=list(x_train[negative_index[0:int(len(negative_index) * TRAINING_DATA_PERCENTAGE)]])
-    true_x_train.extend(list(x_train[positive_index[0:int(len(positive_index) * TRAINING_DATA_PERCENTAGE)]]))
-    true_x_train.extend(list(x_train[negative_index[0:int(len(negative_index) * TRAINING_DATA_PERCENTAGE)]]))
-    true_y_train.extend(list(y_train[positive_index[0:int(len(positive_index) * TRAINING_DATA_PERCENTAGE)]]))
-    true_y_train.extend(list(y_train[negative_index[0:int(len(negative_index) * TRAINING_DATA_PERCENTAGE)]]))
-    mod_z_train.extend(list(z_train[positive_index[0:int(len(positive_index) * TRAINING_DATA_PERCENTAGE)]]))
-    mod_z_train.extend(list(z_train[negative_index[0:int(len(negative_index) * TRAINING_DATA_PERCENTAGE)]]))
+    txp = x_train[positive_index[0:int(len(positive_index) * TRAINING_DATA_PERCENTAGE)]]
+    txp = txp.tolist()
+    txn = x_train[negative_index[0:int(len(negative_index) * TRAINING_DATA_PERCENTAGE)]]
+    txn = txn.tolist()
+    typ = y_train[positive_index[0:int(len(positive_index) * TRAINING_DATA_PERCENTAGE)]]
+    typ = typ.tolist()
+    tyn = y_train[negative_index[0:int(len(negative_index) * TRAINING_DATA_PERCENTAGE)]]
+    tyn = tyn.tolist()
+    tzp = z_train[positive_index[0:int(len(positive_index) * TRAINING_DATA_PERCENTAGE)]]
+    tzp = tzp.tolist()
+    tzn = z_train[negative_index[0:int(len(negative_index) * TRAINING_DATA_PERCENTAGE)]]
+    tzn = tzn.tolist()
+    true_x_train.extend(txp)
+    true_x_train.extend(txn)
+    true_y_train.extend(typ)
+    true_y_train.extend(tyn)
+    mod_z_train.extend(tzp)
+    mod_z_train.extend(tzn)
 
-    pseudo_x_train.extend(list(x_train[positive_index[int(len(positive_index) * TRAINING_DATA_PERCENTAGE):]]))
-    pseudo_x_train.extend(list(x_train[negative_index[int(len(negative_index) * TRAINING_DATA_PERCENTAGE):]]))
-    mod_z_train.extend(list(z_train[positive_index[int(len(positive_index) * TRAINING_DATA_PERCENTAGE):]]))
-    mod_z_train.extend(list(z_train[negative_index[int(len(negative_index) * TRAINING_DATA_PERCENTAGE):]]))
+    pxp = x_train[positive_index[int(len(positive_index) * TRAINING_DATA_PERCENTAGE):]]
+    pxn = x_train[negative_index[int(len(negative_index) * TRAINING_DATA_PERCENTAGE):]]
+    pzp = z_train[positive_index[int(len(positive_index) * TRAINING_DATA_PERCENTAGE):]]
+    pzn = z_train[negative_index[int(len(negative_index) * TRAINING_DATA_PERCENTAGE):]]
+    pxp = pxp.tolist()
+    pxn = pxn.tolist()
+    pzp = pzp.tolist()
+    pzn = pzn.tolist()
+    pseudo_x_train.extend(pxp)
+    pseudo_x_train.extend(pxn)
+    mod_z_train.extend(pzp)
+    mod_z_train.extend(pzn)
 
     return true_x_train, true_y_train, pseudo_x_train, mod_z_train
 
@@ -1005,9 +1022,11 @@ if __name__ == '__main__':
 
             # original copy of x_train, y_train and z_train, only contains true label.
             x_train, y_train, pseudo_x_train, z_train = split_training_data_from_dataset(x_train, y_train, z_train)
-            origin_x_train = x_train
-            origin_y_train = y_train
-            origin_z_train = z_train
+            #print(pseudo_x_train[0])
+            origin_x_train = np.array(x_train)
+            #pseudo_x_train[0]
+            origin_y_train = np.array(y_train)
+            origin_z_train = np.array(z_train)
 
             x_dataset = []
             y_dataset = []
@@ -1036,9 +1055,10 @@ if __name__ == '__main__':
             SELF_TRAINING_EPOCH = 5
             SELF_TRAINING_Threshold = 0.5
             pseudo_y_train = []
+            cur_ep = SELF_TRAINING_EPOCH
 
             while SELF_TRAINING_EPOCH > 0:
-                print("\nself training epoch " + str(abs(SELF_TRAINING_EPOCH - SELF_TRAINING_EPOCH - 1)))
+                print("\nself training epoch " + str(abs(SELF_TRAINING_EPOCH - cur_ep - 1)))
 
                 combined = list(zip(x_train, y_train))
                 combined = sorted(combined, key=lambda x: x[1], reverse=True)
@@ -1187,6 +1207,7 @@ if __name__ == '__main__':
                 x_train = x_y_z_list[0]
                 y_train = x_y_z_list[1]
                 z_train = x_y_z_list[2]
+                resampling_in.close()
 
                 combined = list(zip(x_train, y_train))
                 random.Random(seed).shuffle(combined)
@@ -1206,17 +1227,22 @@ if __name__ == '__main__':
                 model.save('output/model.h5')
 
                 # self training
-                pseudo_y_train = np.zeros(pseudo_x_train[:, 0].size)
-                prediction_y_label_proba = model.predict_proba(pseudo_x_train)[:, 0]
+
+
+                pseudo_x_train = np.asarray(pseudo_x_train)
+                pseudo_x_train_array = sequence.pad_sequences(pseudo_x_train, maxlen=maxlen, padding="post")
+                prediction_y_label_proba = model.predict_proba(pseudo_x_train_array)[:, 0]
                 prediction_y_label_proba = prediction_y_label_proba.tolist()
                 p_index = [idx for idx, val in enumerate(prediction_y_label_proba) if val > SELF_TRAINING_Threshold]
-
+                pseudo_y_train = np.zeros(len(prediction_y_label_proba))
                 pseudo_y_train[p_index] = 1
-                x_train = origin_x_train
+                x_train = origin_x_train.tolist()
                 x_train.extend(pseudo_x_train)
-                y_train = origin_y_train
+                y_train = origin_y_train.tolist()
                 y_train.extend(pseudo_y_train)
-                z_train = origin_z_train
+                z_train = origin_z_train.tolist()
+
+                SELF_TRAINING_EPOCH -= 1
 
             exit()
 
