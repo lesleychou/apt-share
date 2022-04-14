@@ -167,8 +167,8 @@ embedding_size = 128 # 128 dimensions that the model learns for each word=featur
 lstm_output_size = 256 # 256 #200 # 64
 EPOCH = 8 #10 #6
 u_thresh = 80 #85 #90 #96
-DO_TRAINING =  False # True # 
-load_resampling = True # False # 
+DO_TRAINING =  False # True #
+load_resampling = True # False #
 load_nonsampling = False # True # 
 load_undersampling = False
 SHOW_STAT = False # True # # show graphs after calling fit()

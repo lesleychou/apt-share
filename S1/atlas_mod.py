@@ -1053,7 +1053,7 @@ if __name__ == '__main__':
             #            print("Total learning samples: " + str(len(x_train)))
 
             SELF_TRAINING_EPOCH = 5
-            SELF_TRAINING_Threshold = 0.5
+            SELF_TRAINING_Threshold = 0.9
             pseudo_y_train = []
             cur_ep = SELF_TRAINING_EPOCH
 

@@ -869,20 +869,25 @@ def split_training_data_from_dataset(x_train, y_train, z_train):
     y_train = np.array(y_train)
     z_train = np.array(z_train)
 
-
+    ## get indexes
     positive_index = [idx for idx, val in enumerate(y_train) if val == 1]
     negative_index = [idx for idx, val in enumerate(y_train) if val == 0]
-    txp = x_train[positive_index[0:int(len(positive_index) * TRAINING_DATA_PERCENTAGE)]]
+    true_p_index = random.sample(positive_index,int(len(positive_index)*TRAINING_DATA_PERCENTAGE))
+    pseudo_p_index = [ele for ele in positive_index if ele not in true_p_index]
+    true_n_index = random.sample(negative_index,int(len(negative_index)*TRAINING_DATA_PERCENTAGE))
+    pseudo_n_index = [ele for ele in negative_index if ele not in true_n_index]
+
+    txp = x_train[true_p_index]
     txp = txp.tolist()
-    txn = x_train[negative_index[0:int(len(negative_index) * TRAINING_DATA_PERCENTAGE)]]
+    txn = x_train[true_n_index]
     txn = txn.tolist()
-    typ = y_train[positive_index[0:int(len(positive_index) * TRAINING_DATA_PERCENTAGE)]]
+    typ = y_train[true_p_index]
     typ = typ.tolist()
-    tyn = y_train[negative_index[0:int(len(negative_index) * TRAINING_DATA_PERCENTAGE)]]
+    tyn = y_train[true_n_index]
     tyn = tyn.tolist()
-    tzp = z_train[positive_index[0:int(len(positive_index) * TRAINING_DATA_PERCENTAGE)]]
+    tzp = z_train[true_p_index]
     tzp = tzp.tolist()
-    tzn = z_train[negative_index[0:int(len(negative_index) * TRAINING_DATA_PERCENTAGE)]]
+    tzn = z_train[true_n_index]
     tzn = tzn.tolist()
     true_x_train.extend(txp)
     true_x_train.extend(txn)
@@ -891,10 +896,10 @@ def split_training_data_from_dataset(x_train, y_train, z_train):
     mod_z_train.extend(tzp)
     mod_z_train.extend(tzn)
 
-    pxp = x_train[positive_index[int(len(positive_index) * TRAINING_DATA_PERCENTAGE):]]
-    pxn = x_train[negative_index[int(len(negative_index) * TRAINING_DATA_PERCENTAGE):]]
-    pzp = z_train[positive_index[int(len(positive_index) * TRAINING_DATA_PERCENTAGE):]]
-    pzn = z_train[negative_index[int(len(negative_index) * TRAINING_DATA_PERCENTAGE):]]
+    pxp = x_train[pseudo_p_index]
+    pxn = x_train[pseudo_n_index]
+    pzp = z_train[pseudo_p_index]
+    pzn = z_train[pseudo_n_index]
     pxp = pxp.tolist()
     pxn = pxn.tolist()
     pzp = pzp.tolist()
@@ -1053,7 +1058,7 @@ if __name__ == '__main__':
             #            print("Total learning samples: " + str(len(x_train)))
 
             SELF_TRAINING_EPOCH = 5
-            SELF_TRAINING_Threshold = 0.5
+            SELF_TRAINING_Threshold = 0.95
             pseudo_y_train = []
             cur_ep = SELF_TRAINING_EPOCH
 
